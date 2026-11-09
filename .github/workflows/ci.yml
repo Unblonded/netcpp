@@ -2,14 +2,29 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
   build:
+    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - name: linux
+            os: ubuntu-latest
+            cmake_args: ""
+          - name: macos
+            os: macos-latest
+            cmake_args: ""
+          - name: windows (vcpkg curl)
+            os: windows-latest
+            cmake_args: -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+            vcpkg: true
+          - name: windows (bundled curl, DLL)
+            os: windows-latest
+            cmake_args: -DNETCPP_FETCH_CURL=ON -DBUILD_SHARED_LIBS=ON
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -18,20 +33,32 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
 
-      - name: Install libcurl (Windows)
-        if: runner.os == 'Windows'
+      - name: Install libcurl (vcpkg)
+        if: matrix.vcpkg
         run: vcpkg install curl:x64-windows
 
-      - name: Configure (Windows)
-        if: runner.os == 'Windows'
-        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-
-      - name: Configure (Unix)
-        if: runner.os != 'Windows'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_args }}
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+  starter-template:
+    name: starter template (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libcurl (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+      - name: Build starter against this checkout
+        run: |
+          cmake -S templates/starter -B starter-build -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_NETCPP=${{ github.workspace }}
+          cmake --build starter-build --config Release --parallel

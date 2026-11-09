@@ -2,7 +2,9 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Threads)
-find_dependency(CURL)
+if(@NETCPP_CONFIG_NEEDS_CURL@)
+    find_dependency(CURL)
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/netcppTargets.cmake")
 check_required_components(netcpp)

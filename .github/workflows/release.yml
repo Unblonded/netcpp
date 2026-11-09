@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: package ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-22.04
+            cmake_args: ""
+          - name: macos-universal
+            os: macos-latest
+            cmake_args: ""
+            osx_arch: arm64;x86_64
+          - name: windows-x64
+            os: windows-latest
+            cmake_args: -DNETCPP_FETCH_CURL=ON
+    runs-on: ${{ matrix.os }}
+    env:
+      PKG: netcpp-${{ github.ref_name }}-${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libcurl (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+
+      - name: Configure
+        shell: bash
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
+          -DNETCPP_INSTALL=ON -DNETCPP_BUILD_TESTS=ON -DNETCPP_BUILD_EXAMPLES=ON
+          "-DCMAKE_OSX_ARCHITECTURES=${{ matrix.osx_arch }}" ${{ matrix.cmake_args }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Install into package folder
+        shell: bash
+        run: |
+          cmake --install build --config Release --prefix "stage/$PKG"
+          cp README.md LICENSE "stage/$PKG/"
+          cp -r examples "stage/$PKG/examples"
+
+      - name: Archive (Unix)
+        if: runner.os != 'Windows'
+        run: tar -C stage -czf "$PKG.tar.gz" "$PKG"
+
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "stage/$env:PKG" -DestinationPath "$env:PKG.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            ${{ env.PKG }}.tar.gz
+            ${{ env.PKG }}.zip
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Starter template archive
+        run: cd templates && zip -r "../dist/netcpp-starter-${GITHUB_REF_NAME}.zip" starter
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "netc++ $GITHUB_REF_NAME" \
+            --notes-file .github/RELEASE_NOTES.md

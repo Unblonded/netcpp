@@ -28,36 +28,55 @@ if (res) std::cout << res.status << " " << res.body << "\n";
 | **DNS** | `dns::resolve`, `dns::resolve_one`, `dns::reverse` |
 | **Utilities** | port scanner, TCP ping, `wait_for_port`, local interfaces, hostname, public IP, IP validation, URL parse/encode, Base64, SHA-1 |
 
-## Building
+## Quick start (pick one)
 
-Requirements: a C++17 compiler, CMake ≥ 3.16 and **libcurl** (used for HTTP and TLS).
+### 1. Starter project — fastest
+Download `netcpp-starter-*.zip` from the [latest release](https://github.com/Unblonded/netcpp/releases/latest) (or copy [`templates/starter`](templates/starter)),
+open the folder in **VS Code**, **Visual Studio 2022** or **CLion**, and build. netc++ downloads itself.
 
-| Platform | Install libcurl |
+### 2. Add it to your existing CMake project
+```cmake
+include(FetchContent)
+FetchContent_Declare(netcpp
+    GIT_REPOSITORY https://github.com/Unblonded/netcpp.git
+    GIT_TAG v1.0.0)
+FetchContent_MakeAvailable(netcpp)
+
+target_link_libraries(your_app PRIVATE netcpp::netcpp)
+```
+
+### 3. Prebuilt binaries
+Grab the archive for your OS from [Releases](https://github.com/Unblonded/netcpp/releases/latest), unzip it, then:
+```cmake
+find_package(netcpp REQUIRED)   # configure with -DCMAKE_PREFIX_PATH=<unzipped folder>
+target_link_libraries(your_app PRIVATE netcpp::netcpp)
+```
+The Windows package is a self-contained `netcpp.dll`, with libcurl built in. Copy `bin/netcpp.dll` next to your `.exe`.
+Without CMake, add `include/` to your include path and link `lib/netcpp.lib`, `libnetcpp.dylib` or `libnetcpp.so`.
+
+### 4. Work on netc++ itself
+Clone the repo and open the folder in your IDE. `CMakePresets.json` gives you **Debug**, **Release**, **Release (shared / DLL)** and
+**build libcurl from source** presets. From the command line:
+```bash
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug
+```
+
+## Dependencies
+
+netc++ needs a C++17 compiler, CMake ≥ 3.16, and **libcurl** for HTTP and TLS:
+
+| Platform | libcurl |
 |---|---|
-| macOS | ships with the SDK — nothing to install |
+| Windows | **nothing to do**: if libcurl isn't installed, it is downloaded and built automatically (Schannel TLS). vcpkg's `curl` is used if present. |
+| macOS | ships with the OS: nothing to do |
 | Ubuntu / Debian | `sudo apt install libcurl4-openssl-dev` |
 | Fedora | `sudo dnf install libcurl-devel` |
-| Windows | `vcpkg install curl` and pass `-DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake` |
+| Arch | `sudo pacman -S curl` |
 
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
-```
-
-Options: `NETCPP_BUILD_TESTS`, `NETCPP_BUILD_EXAMPLES`, `NETCPP_INSTALL`, `BUILD_SHARED_LIBS`.
-
-### Using it in your project
-
-```cmake
-# as a subdirectory / FetchContent
-add_subdirectory(netcpp)
-target_link_libraries(my_app PRIVATE netcpp::netcpp)
-
-# or after `cmake --install build`
-find_package(netcpp REQUIRED)
-target_link_libraries(my_app PRIVATE netcpp::netcpp)
-```
+To build curl from source on any OS, pass `-DNETCPP_FETCH_CURL=ON`.
+Other options: `BUILD_SHARED_LIBS`, `NETCPP_BUILD_TESTS`, `NETCPP_BUILD_EXAMPLES`, `NETCPP_INSTALL`.
 
 ## Guide
 

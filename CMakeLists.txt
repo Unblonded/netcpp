@@ -14,11 +14,30 @@ endif()
 option(NETCPP_BUILD_EXAMPLES "Build netc++ examples" ${NETCPP_TOP_LEVEL})
 option(NETCPP_BUILD_TESTS "Build netc++ tests" ${NETCPP_TOP_LEVEL})
 option(NETCPP_INSTALL "Generate install rules" ${NETCPP_TOP_LEVEL})
+option(NETCPP_FETCH_CURL "Always build libcurl from source instead of using the system one" OFF)
 
 include(GNUInstallDirs)
 
 find_package(Threads REQUIRED)
-find_package(CURL REQUIRED)
+
+# libcurl: use the installed one, or build it automatically (Windows / opt-in).
+set(NETCPP_BUNDLED_CURL OFF)
+if(NOT NETCPP_FETCH_CURL)
+    find_package(CURL QUIET)
+endif()
+if(NOT CURL_FOUND)
+    if(NETCPP_FETCH_CURL OR WIN32)
+        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchCurl.cmake)
+        set(NETCPP_BUNDLED_CURL ON)
+    else()
+        message(FATAL_ERROR
+            "netc++ needs libcurl. Install it:\n"
+            "  Ubuntu/Debian: sudo apt install libcurl4-openssl-dev\n"
+            "  Fedora:        sudo dnf install libcurl-devel\n"
+            "  Arch:          sudo pacman -S curl\n"
+            "or configure with -DNETCPP_FETCH_CURL=ON to build it from source.")
+    endif()
+endif()
 
 add_library(netcpp
     src/platform.cpp
@@ -48,7 +67,8 @@ set_target_properties(netcpp PROPERTIES
 
 if(WIN32)
     target_link_libraries(netcpp PRIVATE ws2_32 iphlpapi)
-    target_compile_definitions(netcpp PRIVATE _WIN32_WINNT=0x0601 _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(netcpp PRIVATE _WIN32_WINNT=0x0601 _CRT_SECURE_NO_WARNINGS
+                                              NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 
 if(MSVC)
@@ -69,6 +89,18 @@ if(NETCPP_BUILD_TESTS)
     add_executable(netcpp_tests tests/test_main.cpp)
     target_link_libraries(netcpp_tests PRIVATE netcpp::netcpp)
     add_test(NAME netcpp_tests COMMAND netcpp_tests)
+endif()
+
+get_target_property(NETCPP_LIBRARY_TYPE netcpp TYPE)
+if(NETCPP_INSTALL AND NETCPP_BUNDLED_CURL AND NOT NETCPP_LIBRARY_TYPE STREQUAL "SHARED_LIBRARY")
+    message(STATUS "netc++: install rules need -DBUILD_SHARED_LIBS=ON when libcurl is bundled; skipping install")
+    set(NETCPP_INSTALL OFF)
+endif()
+# A static netcpp drags libcurl into its consumers; a shared one hides it.
+if(NETCPP_LIBRARY_TYPE STREQUAL "STATIC_LIBRARY")
+    set(NETCPP_CONFIG_NEEDS_CURL ON)
+else()
+    set(NETCPP_CONFIG_NEEDS_CURL OFF)
 endif()
 
 if(NETCPP_INSTALL)
