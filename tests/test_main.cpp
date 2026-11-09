@@ -328,7 +328,8 @@ TEST(tcp_connect_refused) {
         auto srv = netcpp::tcp::listen(0, "127.0.0.1");
         port = srv->port();
     }
-    CHECK_THROWS_KIND(netcpp::tcp::connect("127.0.0.1", port, 2s), netcpp::ErrorKind::Network);
+    // Windows retries refused loopback connects for ~2 s before reporting the error.
+    CHECK_THROWS_KIND(netcpp::tcp::connect("127.0.0.1", port, 10s), netcpp::ErrorKind::Network);
 }
 
 TEST(accept_timeout_returns_null) {
