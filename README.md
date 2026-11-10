@@ -54,7 +54,35 @@ target_link_libraries(your_app PRIVATE netcpp::netcpp)
 The Windows package is a self-contained `netcpp.dll`, with libcurl built in. Copy `bin/netcpp.dll` next to your `.exe`.
 Without CMake, add `include/` to your include path and link `lib/netcpp.lib`, `libnetcpp.dylib` or `libnetcpp.so`.
 
-### 4. Work on netc++ itself
+### 4. vcpkg (works with Visual Studio / MSBuild and CMake)
+This repo is a vcpkg registry. Next to your project's `vcpkg.json`, add a `vcpkg-configuration.json`:
+```json
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "5d4a3dc90c0b3773f3bac81bf41297b54328f471"
+  },
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/Unblonded/netcpp",
+      "baseline": "5d90df71fb03ee7c1f207b8e2ba1a03c2f3fe544",
+      "packages": [ "netcpp" ]
+    }
+  ]
+}
+```
+Then list it in `vcpkg.json` with `"dependencies": ["netcpp"]`.
+
+- **Visual Studio (.vcxproj / MSBuild):** run `vcpkg integrate install` once. In the project properties, set
+  *vcpkg → Use Vcpkg Manifest = Yes* and *C/C++ → Language → C++ Language Standard = ISO C++17*.
+  `#include <netcpp/netcpp.hpp>` then works, and linking happens automatically.
+  [`templates/visual-studio`](templates/visual-studio) is a ready-made project: open `netproject.vcxproj` and press F5.
+- **CMake:** configure with `-DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake` and use `find_package(netcpp CONFIG REQUIRED)`.
+- **Classic mode:** from a clone of this repo, run `vcpkg install netcpp --overlay-ports=ports`.
+
+### 5. Work on netc++ itself
 Clone the repo and open the folder in your IDE. `CMakePresets.json` gives you **Debug**, **Release**, **Release (shared / DLL)** and
 **build libcurl from source** presets. From the command line:
 ```bash
