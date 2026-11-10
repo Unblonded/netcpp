@@ -10,3 +10,5 @@ out/
 .DS_Store
 CMakeUserPresets.json
 download.bin
+x64/
+vcpkg_installed/

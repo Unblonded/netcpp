@@ -1,0 +1,62 @@
+name: vcpkg
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ports/**'
+      - 'versions/**'
+      - 'templates/visual-studio/**'
+      - '.github/workflows/vcpkg.yml'
+  workflow_dispatch:
+
+jobs:
+  msbuild-registry:
+    name: Visual Studio / MSBuild via vcpkg registry
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Integrate vcpkg with MSBuild
+        run: C:\vcpkg\vcpkg.exe integrate install
+
+      - name: Build template (vcpkg installs netcpp from the GitHub registry)
+        working-directory: templates/visual-studio
+        run: msbuild netproject.vcxproj /p:Configuration=Release /p:Platform=x64 /m /v:minimal
+
+      - name: Run
+        working-directory: templates/visual-studio
+        run: .\x64\Release\netproject.exe
+
+  classic-overlay:
+    name: vcpkg install --overlay-ports (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install netcpp with vcpkg
+        shell: bash
+        run: |
+          VCPKG="${VCPKG_INSTALLATION_ROOT}/vcpkg"
+          "$VCPKG" install netcpp --overlay-ports=ports
+
+      - name: Build a CMake consumer against it
+        shell: bash
+        run: |
+          mkdir consumer
+          printf '%s\n' \
+            'cmake_minimum_required(VERSION 3.16)' \
+            'project(consumer CXX)' \
+            'set(CMAKE_CXX_STANDARD 17)' \
+            'find_package(netcpp CONFIG REQUIRED)' \
+            'add_executable(consumer main.cpp)' \
+            'target_link_libraries(consumer PRIVATE netcpp::netcpp)' > consumer/CMakeLists.txt
+          cp templates/visual-studio/main.cpp consumer/main.cpp
+          cmake -S consumer -B consumer/build -DCMAKE_BUILD_TYPE=Release \
+            "-DCMAKE_TOOLCHAIN_FILE=${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake --build consumer/build --config Release

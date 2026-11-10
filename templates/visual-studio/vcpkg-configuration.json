@@ -1,0 +1,15 @@
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "5d4a3dc90c0b3773f3bac81bf41297b54328f471"
+  },
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/Unblonded/netcpp",
+      "baseline": "5d90df71fb03ee7c1f207b8e2ba1a03c2f3fe544",
+      "packages": [ "netcpp" ]
+    }
+  ]
+}
