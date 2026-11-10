@@ -1,0 +1,22 @@
+{
+  "name": "netcpp",
+  "version": "1.0.0",
+  "description": "netc++ - cross-platform C++17 network library (HTTP/HTTPS, WebSocket, TCP/TLS/UDP, DNS) with an arrow-operator API",
+  "homepage": "https://github.com/Unblonded/netcpp",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "curl",
+      "default-features": false,
+      "features": ["ssl"]
+    },
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}
